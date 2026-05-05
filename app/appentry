@@ -1,1 +1,99 @@
+package com.example.coldchainapp
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.delay
+
+@Composable
+fun AppEntry() {
+
+    val context = LocalContext.current
+
+    // ================= LOGIN STATE =================
+    var screen by remember {
+        mutableStateOf(
+            if (UserPrefs.isLoggedIn(context)) "main" else "login"
+        )
+    }
+
+    // ================= ESP DATA STATE =================
+    var temp by remember { mutableStateOf("--") }
+    var hum by remember { mutableStateOf("--") }
+
+    val ip = "10.143.124.116"   // 
+
+    // ================= AUTO FETCH ESP DATA =================
+    LaunchedEffect(Unit) {
+        while (true) {
+
+            EspApi.fetchData(ip) { t, h ->
+                temp = t
+                hum = h
+            }
+
+            delay(2000) // refresh every 2 seconds
+        }
+    }
+
+    // ================= BACK HANDLER =================
+    BackHandler {
+
+        when (screen) {
+
+            "signup" -> screen = "login"
+
+            "history" -> screen = "main"
+
+            "main" -> {
+                UserPrefs.setLoggedIn(context, false)
+                screen = "login"
+            }
+
+            "login" -> {
+                // do nothing
+            }
+        }
+    }
+
+    // ================= NAVIGATION =================
+    when (screen) {
+
+        // ---------- LOGIN ----------
+        "login" -> LoginScreen(
+            onLoginSuccess = { screen = "main" },
+            onGoToSignup = { screen = "signup" },
+            onForgotPassword = { screen = "forgot" }
+        )
+
+        // ---------- SIGNUP ----------
+        "signup" -> SignupScreen(
+            onSignupSuccess = { screen = "login" },
+            onBackToLogin = { screen = "login" }
+        )
+
+        // ---------- FORGOT PASSWORD ----------
+        "forgot" -> ForgotPasswordScreen(
+            onResetDone = { screen = "login" }
+        )
+
+        "main" -> MainScreen(
+            temp = temp,      
+            hum = hum,        
+            onLogout = {
+                UserPrefs.setLoggedIn(context, false)
+                screen = "login"
+            },
+            onOpenHistory = {
+                screen = "history"
+            }
+        )
+
+        // ---------- HISTORY ----------
+        "history" -> HistoryScreen(
+            onBack = {
+                screen = "main"
+            }
+        )
+    }
+}
