@@ -1,1 +1,236 @@
 
+package com.example.coldchainapp
+
+import android.graphics.Color as AndroidColor
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.data.*
+
+@Composable
+fun MainScreen(
+    temp: String,
+    hum: String,
+    onLogout: () -> Unit,
+    onOpenHistory: () -> Unit
+) {
+
+    var espIp by remember { mutableStateOf("") }
+    var isConnected by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
+
+    var temperature by remember { mutableStateOf(0f) }
+    var humidity by remember { mutableStateOf(0f) }
+    var doorStatus by remember { mutableStateOf("--") }
+    var alertMessage by remember { mutableStateOf("") }
+
+    var xIndex by remember { mutableStateOf(0f) }
+
+    val tempList = remember { mutableStateListOf<Entry>() }
+    val humList = remember { mutableStateListOf<Entry>() }
+
+    LaunchedEffect(temp, hum, isConnected) {
+
+        if (!isConnected) return@LaunchedEffect
+
+        temperature = temp.toFloatOrNull() ?: 0f
+        humidity = hum.toFloatOrNull() ?: 0f
+
+        doorStatus = if (temperature > 8f) "OPEN (ALERT)" else "CLOSED"
+
+        alertMessage = when {
+            temperature > 8f -> "CRITICAL: Temperature exceeds 8°C!"
+            temperature > 6f -> "WARNING: Temperature rising"
+            else -> ""
+        }
+
+        tempList.add(Entry(xIndex, temperature))
+        humList.add(Entry(xIndex, humidity))
+        xIndex += 1f
+
+        if (tempList.size > 30) {
+            tempList.removeAt(0)
+            humList.removeAt(0)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0B1220))
+            .padding(16.dp)
+    ) {
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            Column {
+                Text("COLD CHAIN SCADA", color = Color.White)
+                Text("REAL-TIME MONITORING", color = Color(0xFF94A3B8))
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(if (isConnected) Color.Green else Color.Red)
+                )
+
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    if (isConnected) "LIVE" else "OFFLINE",
+                    color = if (isConnected) Color.Green else Color.Red
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                IconButton(onClick = onOpenHistory) {
+                    Icon(Icons.Default.History, contentDescription = null, tint = Color.Cyan)
+                }
+
+                IconButton(onClick = onLogout) {
+                    Icon(Icons.Default.Logout, contentDescription = null, tint = Color.Red)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(Color(0xFF111C2E))
+        ) {
+
+            Column(Modifier.padding(16.dp)) {
+
+                Text("ESP32 CONNECTION", color = Color.White)
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = espIp,
+                    onValueChange = { espIp = it },
+                    label = { Text("Enter ESP IP") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color.Cyan,
+                        focusedBorderColor = Color.Cyan,
+                        unfocusedBorderColor = Color.Gray,
+                        focusedLabelColor = Color.Cyan,
+                        unfocusedLabelColor = Color.LightGray
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Button(
+                    onClick = {
+                        if (espIp.isNotBlank()) {
+                            isConnected = true
+                            error = ""
+                        } else {
+                            error = "Enter valid IP"
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("CONNECT")
+                }
+
+                if (error.isNotEmpty()) {
+                    Text(error, color = Color.Red)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text("LIVE DATA", color = Color(0xFF94A3B8))
+
+        MetricCard("TEMPERATURE", "$temperature °C")
+        MetricCard("HUMIDITY", "$humidity %")
+        MetricCard("DOOR STATUS", doorStatus)
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+      
+        if (alertMessage.isNotEmpty()) {
+            Card(
+                colors = CardDefaults.cardColors(Color(0xFF7F1D1D)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    alertMessage,
+                    color = Color.White,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+       
+        AndroidView(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp),
+            factory = { context ->
+                LineChart(context).apply {
+                    setBackgroundColor(AndroidColor.parseColor("#111C2E"))
+                    axisRight.isEnabled = false
+                    axisLeft.textColor = AndroidColor.WHITE
+                    xAxis.textColor = AndroidColor.WHITE
+                    legend.textColor = AndroidColor.WHITE
+                }
+            },
+            update = { chart ->
+
+                val tempSet = LineDataSet(tempList, "Temperature").apply {
+                    color = AndroidColor.RED
+                    setDrawCircles(false)
+                }
+
+                val humSet = LineDataSet(humList, "Humidity").apply {
+                    color = AndroidColor.CYAN
+                    setDrawCircles(false)
+                }
+
+                chart.data = LineData(tempSet, humSet)
+                chart.notifyDataSetChanged()
+                chart.invalidate()
+            }
+        )
+    }
+}
+
+@Composable
+fun MetricCard(title: String, value: String) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        colors = CardDefaults.cardColors(Color(0xFF111C2E))
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(title, color = Color(0xFF94A3B8))
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(value, color = Color.White)
+        }
+    }
+}
