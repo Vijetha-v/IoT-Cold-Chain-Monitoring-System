@@ -1,0 +1,4 @@
+created_at,entry_id,field1,field2,field3,field4,latitude,longitude,elevation,status
+2026-05-14T14:13:54+00:00,1,5.3,61.0,0,,,,,
+2026-05-14T14:15:24+00:00,2,5.3,71.5,0,,,,,
+2026-05-14T14:16:34+00:00,3,23.9,58.5,1,,,,,
