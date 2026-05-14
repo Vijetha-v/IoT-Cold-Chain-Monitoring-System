@@ -1,0 +1,3 @@
+POC 1 : DHT22 sensor reads temperature data correctly and prints real-time values to Serial Monitor in ESP32 
+POC 2 :  ESP32 publishes temperature data to cloud platform using MQTT or HTTP over Wi-Fi with periodic updates 
+POC 3 :  ESP32 publishes temperature data to cloud platform using MQTT or HTTP over Wi-Fi with periodic updates 

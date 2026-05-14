@@ -1,1 +1,0 @@
-POC 1 : DHT22 sensor reads temperature data correctly and prints real-time values to Serial Monitor in ESP32 
