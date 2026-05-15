@@ -1,0 +1,642 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Cold Chain Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#04080f;--surface:#080f1c;--card:#0b1525;--edge:#0f2035;--rim:#1a3a5c;
+  --cyan:#00e5c8;--ice:#7df4ff;--amber:#f59e0b;--rose:#f43f5e;
+  --muted:#2a4a66;--txt:#7aaac9;--head:#c8e4f8;
+  --mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--txt);font-family:var(--sans);min-height:100vh;
+  background-image:linear-gradient(rgba(0,229,200,.03) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(0,229,200,.03) 1px,transparent 1px);
+  background-size:40px 40px;}
+
+/* HEADER */
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;
+  border-bottom:1px solid var(--edge);background:linear-gradient(90deg,rgba(0,229,200,.05),transparent 60%);}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-icon{width:36px;height:36px;border-radius:8px;border:1px solid rgba(0,229,200,.3);
+  background:rgba(0,229,200,.06);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.brand-icon svg{width:18px;height:18px;}
+.brand-name{font-family:var(--mono);font-size:.78rem;color:var(--head);letter-spacing:3px;line-height:1.1;}
+.brand-sub{font-size:.6rem;color:var(--muted);letter-spacing:4px;}
+.header-right{display:flex;align-items:center;gap:20px;flex-shrink:0;}
+.live-tag{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.6rem;letter-spacing:2px;color:var(--cyan);}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:pulse 1.2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+.htime{font-family:var(--mono);font-size:.6rem;color:var(--muted);}
+
+/* STATUS STRIP */
+.status-strip{display:flex;gap:6px;flex-wrap:wrap;padding:8px 24px;
+  background:var(--surface);border-bottom:1px solid var(--edge);}
+.pill{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;
+  border:1px solid var(--edge);font-family:var(--mono);font-size:.58rem;letter-spacing:1px;
+  color:var(--txt);transition:border-color .3s;white-space:nowrap;}
+.pill.ok{border-color:rgba(0,229,200,.2);}
+.pill.warn{border-color:rgba(245,158,11,.2);}
+.pill.err{border-color:rgba(244,63,94,.2);}
+.pdot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.pdot.c{background:var(--cyan);box-shadow:0 0 6px var(--cyan);}
+.pdot.a{background:var(--amber);box-shadow:0 0 6px var(--amber);}
+.pdot.r{background:var(--rose);box-shadow:0 0 6px var(--rose);}
+.pdot.m{background:var(--muted);}
+.pdot.i{background:var(--ice);}
+
+/* ALERT BANNER */
+.alert-banner{display:none;align-items:center;gap:10px;margin:10px 20px;
+  padding:10px 16px;border-radius:8px;border:1px solid rgba(244,63,94,.3);
+  background:rgba(244,63,94,.05);font-family:var(--mono);font-size:.72rem;
+  color:var(--rose);animation:apulse 1.5s infinite;}
+.alert-banner.show{display:flex;}
+@keyframes apulse{0%,100%{border-color:rgba(244,63,94,.3);}50%{border-color:rgba(244,63,94,.07);}}
+
+/* MAIN LAYOUT — two columns on desktop, single on mobile */
+.layout{display:grid;grid-template-columns:1fr 280px;}
+
+/* LEFT — scrollable content column */
+.left{padding:16px;display:flex;flex-direction:column;gap:14px;
+  border-right:1px solid var(--edge);overflow-y:auto;}
+
+/* RIGHT — fixed height sidebar that scrolls internally */
+.right{display:flex;flex-direction:column;background:var(--surface);
+  height:calc(100vh - 90px);position:sticky;top:0;overflow:hidden;}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--edge);border-radius:10px;
+  padding:14px;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(0,229,200,.15),transparent);}
+.clabel{font-family:var(--mono);font-size:.56rem;letter-spacing:3px;
+  color:var(--muted);margin-bottom:10px;text-transform:uppercase;}
+
+/* BIG READINGS */
+.readings{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.reading{background:var(--card);border:1px solid var(--edge);border-radius:10px;
+  padding:16px;display:flex;flex-direction:column;gap:8px;
+  transition:border-color .3s;position:relative;overflow:hidden;}
+.reading::before{content:'';position:absolute;top:0;left:0;bottom:0;width:2px;border-radius:2px 0 0 2px;}
+.reading.temp-card::before{background:var(--cyan);}
+.reading.hum-card::before{background:var(--ice);}
+.reading:hover{border-color:var(--rim);}
+.r-head{font-family:var(--mono);font-size:.54rem;letter-spacing:3px;color:var(--muted);}
+.r-big{font-family:var(--mono);font-size:2.4rem;font-weight:700;line-height:1;letter-spacing:-2px;}
+.r-big.c{color:var(--cyan);}
+.r-big.i{color:var(--ice);}
+.r-big.a{color:var(--amber);}
+.r-big.r{color:var(--rose);}
+.r-sub{font-size:.72rem;color:var(--muted);}
+.r-bar{height:3px;border-radius:3px;background:var(--edge);overflow:hidden;}
+.r-fill{height:100%;border-radius:3px;transition:width .7s cubic-bezier(.4,0,.2,1);}
+.r-fill.c{background:linear-gradient(90deg,rgba(0,229,200,.4),var(--cyan));}
+.r-fill.i{background:linear-gradient(90deg,rgba(125,244,255,.4),var(--ice));}
+
+/* PELTIER */
+.peltier-card{background:var(--card);border:1px solid var(--edge);border-radius:10px;
+  padding:16px;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;transition:border-color .4s;}
+.peltier-card.on{border-color:rgba(245,158,11,.35);}
+.peltier-card.off{border-color:rgba(0,229,200,.2);}
+.peltier-left{display:flex;flex-direction:column;gap:4px;min-width:0;}
+.peltier-label{font-family:var(--mono);font-size:.54rem;letter-spacing:3px;color:var(--muted);}
+.peltier-state{font-family:var(--mono);font-size:1.1rem;font-weight:700;letter-spacing:2px;transition:color .4s;}
+.peltier-state.on{color:var(--amber);}
+.peltier-state.off{color:var(--cyan);}
+.peltier-reason{font-size:.66rem;color:var(--muted);margin-top:2px;word-break:break-word;}
+.peltier-icon{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;transition:background .4s,border-color .4s;border:1.5px solid var(--edge);flex-shrink:0;}
+.peltier-icon.on{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.3);}
+.peltier-icon.off{background:rgba(0,229,200,.05);border-color:rgba(0,229,200,.2);}
+.peltier-icon svg{width:22px;height:22px;}
+
+/* METRICS */
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.metric{background:var(--card);border:1px solid var(--edge);border-radius:10px;
+  padding:14px;text-align:center;transition:border-color .3s,transform .2s;}
+.metric:hover{border-color:var(--rim);transform:translateY(-2px);}
+.m-label{font-family:var(--mono);font-size:.52rem;letter-spacing:2px;color:var(--muted);margin-bottom:8px;}
+.m-val{font-family:var(--mono);font-size:1.5rem;font-weight:700;line-height:1;}
+.m-val.c{color:var(--cyan);}
+.m-val.i{color:var(--ice);}
+.m-val.r{color:var(--rose);}
+.m-unit{font-size:.66rem;color:var(--muted);margin-top:5px;}
+
+/* SPARKLINES */
+.history-wrap{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.hist-card{background:var(--card);border:1px solid var(--edge);border-radius:10px;padding:14px;}
+.hist-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;gap:8px;}
+.hist-title{font-family:var(--mono);font-size:.54rem;letter-spacing:3px;color:var(--muted);}
+.hist-cur{font-family:var(--mono);font-size:.8rem;font-weight:700;white-space:nowrap;}
+.hist-cur.c{color:var(--cyan);}
+.hist-cur.i{color:var(--ice);}
+.sparkline{display:flex;align-items:flex-end;gap:3px;height:50px;}
+.spark-bar{flex:1;border-radius:2px 2px 0 0;min-height:4px;transition:height .4s ease,background .3s;}
+.spark-bar.c{background:rgba(0,229,200,.3);}
+.spark-bar.c.hi{background:var(--cyan);}
+.spark-bar.i{background:rgba(125,244,255,.2);}
+.spark-bar.i.hi{background:var(--ice);}
+.spark-bar.danger{background:rgba(244,63,94,.5);}
+.spark-labels{display:flex;justify-content:space-between;margin-top:5px;}
+.spark-labels span{font-family:var(--mono);font-size:.5rem;color:var(--muted);}
+
+/* RIGHT PANEL INTERNALS */
+.r-sysinfo{padding:14px;border-bottom:1px solid var(--edge);}
+.r-title{font-family:var(--mono);font-size:.56rem;letter-spacing:3px;color:var(--muted);margin-bottom:10px;}
+.r-row{display:flex;justify-content:space-between;align-items:center;
+  padding:5px 0;border-bottom:1px solid rgba(15,32,53,.8);gap:8px;}
+.r-row:last-child{border-bottom:none;}
+.r-key{font-family:var(--mono);font-size:.6rem;color:var(--muted);white-space:nowrap;}
+.r-val{font-family:var(--mono);font-size:.64rem;color:var(--head);text-align:right;}
+.r-val.c{color:var(--cyan);}
+.r-val.a{color:var(--amber);}
+.r-val.i{color:var(--ice);}
+.r-val.r{color:var(--rose);}
+.r-uptime{padding:12px 14px;border-bottom:1px solid var(--edge);}
+.uval{font-family:var(--mono);font-size:1.4rem;color:var(--ice);letter-spacing:2px;}
+.uprog{margin-top:8px;height:2px;background:var(--edge);border-radius:2px;overflow:hidden;}
+.uprog-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--ice));border-radius:2px;width:0%;transition:width 1s;}
+.log-header{display:flex;justify-content:space-between;align-items:center;
+  padding:10px 14px;border-bottom:1px solid var(--edge);flex-shrink:0;}
+.log-title{font-family:var(--mono);font-size:.56rem;letter-spacing:3px;color:var(--muted);}
+.log-count{font-family:var(--mono);font-size:.56rem;color:var(--amber);
+  background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.15);border-radius:10px;padding:2px 8px;}
+.clr-btn{font-family:var(--mono);font-size:.55rem;color:var(--muted);letter-spacing:1px;
+  background:none;border:1px solid var(--edge);border-radius:5px;padding:3px 8px;
+  cursor:pointer;transition:border-color .2s,color .2s;}
+.clr-btn:hover{border-color:var(--rose);color:var(--rose);}
+.log-list{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px;min-height:0;}
+.log-list::-webkit-scrollbar{width:2px;}
+.log-list::-webkit-scrollbar-thumb{background:var(--rim);border-radius:2px;}
+.log-item{padding:8px 10px;border-radius:8px;border:1px solid var(--edge);
+  border-left-width:2px;background:rgba(255,255,255,.01);animation:slideIn .3s ease;flex-shrink:0;}
+@keyframes slideIn{from{opacity:0;transform:translateX(6px);}to{opacity:1;transform:none;}}
+.log-item.danger{border-left-color:var(--rose);}
+.log-item.warn{border-left-color:var(--amber);}
+.log-item.ok{border-left-color:var(--cyan);}
+.log-item.info{border-left-color:var(--ice);}
+.log-msg{font-size:.74rem;color:var(--head);line-height:1.3;}
+.log-time{font-family:var(--mono);font-size:.52rem;color:var(--muted);margin-top:2px;}
+.log-empty{text-align:center;padding:30px 10px;font-family:var(--mono);font-size:.6rem;color:var(--rim);letter-spacing:2px;}
+
+footer{text-align:center;padding:8px;border-top:1px solid var(--edge);
+  font-family:var(--mono);font-size:.5rem;color:var(--edge);letter-spacing:3px;background:var(--surface);}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr;}
+  .right{height:auto;position:static;overflow:visible;}
+  .log-list{max-height:280px;}
+  .history-wrap{grid-template-columns:1fr;}
+}
+@media(max-width:560px){
+  .readings{grid-template-columns:1fr;}
+  .metrics{grid-template-columns:repeat(2,1fr);}
+  .header-right{display:none;}
+  header{padding:12px 16px;}
+  .status-strip{padding:6px 12px;}
+  .left{padding:12px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">
+      <svg viewBox="0 0 18 18" fill="none" stroke="#00e5c8" stroke-width="1.4" stroke-linecap="round">
+        <path d="M9 1L2 5v8l7 4 7-4V5z"/>
+        <path d="M9 1v16M2 5l7 4 7-4"/>
+        <circle cx="9" cy="9" r="1.5" fill="#00e5c8" stroke="none"/>
+      </svg>
+    </div>
+    <div>
+      <div class="brand-name">COLD CHAIN</div>
+      <div class="brand-sub">IOT MONITOR · ESP32</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-tag"><div class="live-dot"></div>LIVE</div>
+    <div class="htime">LAST: <span id="lastTime">--:--:--</span></div>
+  </div>
+</header>
+
+<div class="status-strip">
+  <div class="pill" id="pillConn"><div class="pdot m" id="connDot"></div>CONNECTION: <span id="connText">WAITING</span></div>
+  <div class="pill" id="pillSys"><div class="pdot m" id="sysDot"></div>STATUS: <span id="sysText">INIT</span></div>
+  <div class="pill" id="pillPelt"><div class="pdot m" id="peltDot"></div>PELTIER: <span id="peltText">--</span></div>
+  <div class="pill"><div class="pdot a"></div>ALERTS: <span id="alertCount">0</span></div>
+  <div class="pill"><div class="pdot i"></div>PACKETS: <span id="packetsVal">0</span></div>
+  <div class="pill" id="pillEsp"><div class="pdot m" id="espDot"></div>ESP32: <span id="espText">CONNECTING</span></div>
+</div>
+
+<div class="alert-banner" id="alertBanner">
+  <span style="font-size:11px;flex-shrink:0;">▲</span>
+  <span id="alertMsg">--</span>
+</div>
+
+<div class="layout">
+
+  <!-- LEFT COLUMN -->
+  <div class="left">
+
+    <!-- Cold Chain Flow -->
+    <div class="card">
+      <div class="clabel">▸ COLD CHAIN FLOW</div>
+      <div style="overflow-x:auto;">
+        <svg width="100%" viewBox="0 0 680 110" xmlns="http://www.w3.org/2000/svg" style="min-width:480px;">
+          <defs>
+            <marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="4" markerHeight="4" orient="auto">
+              <path d="M1 1L7 4L1 7" fill="none" stroke="#1a3a5c" stroke-width="1.5" stroke-linecap="round"/>
+            </marker>
+          </defs>
+          <rect x="4" y="14" width="104" height="82" rx="8" fill="#0b1525" stroke="#0f2035"/>
+          <rect x="4" y="14" width="104" height="3" rx="1" fill="#00e5c8" opacity=".5"/>
+          <polygon points="56,26 36,44 76,44" fill="none" stroke="#00e5c8" stroke-width="1" opacity=".6"/>
+          <rect x="42" y="44" width="28" height="18" rx="2" fill="none" stroke="#00e5c8" stroke-width="1" opacity=".5"/>
+          <text x="56" y="76" text-anchor="middle" font-size="7.5" font-family="Space Mono" fill="#7aaac9">SOURCE</text>
+          <text x="56" y="88" text-anchor="middle" font-size="6" font-family="DM Sans" fill="#2a4a66">Cold Storage</text>
+          <line x1="110" y1="55" x2="132" y2="55" stroke="#1a3a5c" stroke-width="1" marker-end="url(#ar)"/>
+          <circle cx="121" cy="55" r="2.5" fill="#00e5c8" opacity=".4"><animate attributeName="opacity" values=".1;.7;.1" dur="2s" repeatCount="indefinite"/></circle>
+          <rect x="134" y="14" width="104" height="82" rx="8" fill="#0b1525" stroke="#0f2035"/>
+          <rect x="134" y="14" width="104" height="3" rx="1" fill="#7df4ff" opacity=".5"/>
+          <rect x="150" y="28" width="44" height="24" rx="3" fill="none" stroke="#7df4ff" stroke-width="1" opacity=".6"/>
+          <text x="172" y="43" text-anchor="middle" font-size="10" fill="#7df4ff" opacity=".7">❄</text>
+          <circle cx="158" cy="56" r="4" fill="none" stroke="#7df4ff" stroke-width="1" opacity=".5"/>
+          <circle cx="202" cy="56" r="4" fill="none" stroke="#7df4ff" stroke-width="1" opacity=".5"/>
+          <text x="186" y="76" text-anchor="middle" font-size="7.5" font-family="Space Mono" fill="#7aaac9">TRANSPORT</text>
+          <text x="186" y="88" text-anchor="middle" font-size="6" font-family="DM Sans" fill="#2a4a66">Ref. Vehicle</text>
+          <line x1="240" y1="55" x2="262" y2="55" stroke="#1a3a5c" stroke-width="1" marker-end="url(#ar)"/>
+          <circle cx="251" cy="55" r="2.5" fill="#7df4ff" opacity=".4"><animate attributeName="opacity" values=".1;.7;.1" dur="2s" begin=".6s" repeatCount="indefinite"/></circle>
+          <rect x="264" y="6" width="122" height="98" rx="10" fill="#0b1525" stroke="#00e5c8" stroke-width="1.5"/>
+          <rect x="264" y="6" width="122" height="4" rx="1" fill="#00e5c8"/>
+          <text x="325" y="20" text-anchor="middle" font-size="5.5" font-family="Space Mono" fill="#00e5c8" letter-spacing="1">● MONITORED</text>
+          <rect x="278" y="24" width="94" height="56" rx="5" fill="rgba(0,229,200,.04)" stroke="#00e5c8" stroke-width=".7" opacity=".7"/>
+          <line x1="325" y1="24" x2="325" y2="80" stroke="#00e5c8" stroke-width=".4" opacity=".2"/>
+          <text x="303" y="58" text-anchor="middle" font-size="11" font-family="Space Mono" fill="#00e5c8" font-weight="700" id="illus-temp">--°C</text>
+          <text x="347" y="58" text-anchor="middle" font-size="11" font-family="Space Mono" fill="#7df4ff" font-weight="700" id="illus-hum">--%</text>
+          <text x="303" y="70" text-anchor="middle" font-size="5.5" font-family="DM Sans" fill="#2a4a66">TEMP</text>
+          <text x="347" y="70" text-anchor="middle" font-size="5.5" font-family="DM Sans" fill="#2a4a66">HUM</text>
+          <text x="325" y="92" text-anchor="middle" font-size="7" font-family="Space Mono" fill="#7aaac9">ESP32 UNIT</text>
+          <line x1="388" y1="55" x2="410" y2="55" stroke="#1a3a5c" stroke-width="1" marker-end="url(#ar)"/>
+          <circle cx="399" cy="55" r="2.5" fill="#a855f7" opacity=".4"><animate attributeName="opacity" values=".1;.7;.1" dur="2s" begin="1.2s" repeatCount="indefinite"/></circle>
+          <rect x="412" y="14" width="104" height="82" rx="8" fill="#0b1525" stroke="#0f2035"/>
+          <rect x="412" y="14" width="104" height="3" rx="1" fill="#a855f7" opacity=".5"/>
+          <rect x="432" y="28" width="34" height="28" rx="2" fill="none" stroke="#a855f7" stroke-width="1" opacity=".6"/>
+          <line x1="432" y1="38" x2="466" y2="38" stroke="#a855f7" stroke-width=".7" opacity=".4"/>
+          <line x1="449" y1="28" x2="449" y2="56" stroke="#a855f7" stroke-width=".7" opacity=".4"/>
+          <text x="464" y="76" text-anchor="middle" font-size="7.5" font-family="Space Mono" fill="#7aaac9">DISPATCH</text>
+          <text x="464" y="88" text-anchor="middle" font-size="6" font-family="DM Sans" fill="#2a4a66">Dist. Hub</text>
+          <line x1="518" y1="55" x2="540" y2="55" stroke="#1a3a5c" stroke-width="1" marker-end="url(#ar)"/>
+          <circle cx="529" cy="55" r="2.5" fill="#f59e0b" opacity=".4"><animate attributeName="opacity" values=".1;.7;.1" dur="2s" begin="1.8s" repeatCount="indefinite"/></circle>
+          <rect x="542" y="14" width="130" height="82" rx="8" fill="#0b1525" stroke="#0f2035"/>
+          <rect x="542" y="14" width="130" height="3" rx="1" fill="#f59e0b" opacity=".5"/>
+          <rect x="560" y="28" width="46" height="32" rx="3" fill="none" stroke="#f59e0b" stroke-width="1" opacity=".6"/>
+          <path d="M560 40 Q583 26 606 40" fill="none" stroke="#f59e0b" stroke-width="1" opacity=".6"/>
+          <text x="607" y="76" text-anchor="middle" font-size="7.5" font-family="Space Mono" fill="#7aaac9">DELIVERY</text>
+          <text x="607" y="88" text-anchor="middle" font-size="6" font-family="DM Sans" fill="#2a4a66">End Consumer</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Temp + Humidity -->
+    <div class="readings">
+      <div class="reading temp-card">
+        <div class="r-head">▸ TEMPERATURE</div>
+        <div class="r-big c" id="tempBig">--</div>
+        <div class="r-sub">°C · Target 2 – 8°C</div>
+        <div class="r-bar"><div class="r-fill c" id="tempBar" style="width:0%"></div></div>
+      </div>
+      <div class="reading hum-card">
+        <div class="r-head">▸ HUMIDITY</div>
+        <div class="r-big i" id="humBig">--</div>
+        <div class="r-sub">% Relative humidity</div>
+        <div class="r-bar"><div class="r-fill i" id="humBar" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <!-- Peltier -->
+    <div class="peltier-card off" id="peltierCard">
+      <div class="peltier-left">
+        <div class="peltier-label">▸ PELTIER COOLER</div>
+        <div class="peltier-state off" id="peltierState">STANDBY</div>
+        <div class="peltier-reason" id="peltierReason">Temp within safe range (2–8°C)</div>
+      </div>
+      <div class="peltier-icon off" id="peltierIcon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#00e5c8" stroke-width="1.4" stroke-linecap="round" id="peltierSvg">
+          <circle cx="12" cy="12" r="4"/>
+          <path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Min / Max / Avg -->
+    <div class="metrics">
+      <div class="metric">
+        <div class="m-label">MIN TEMP</div>
+        <div class="m-val c" id="minTemp">--</div>
+        <div class="m-unit">°C session</div>
+      </div>
+      <div class="metric">
+        <div class="m-label">MAX TEMP</div>
+        <div class="m-val r" id="maxTemp">--</div>
+        <div class="m-unit">°C session</div>
+      </div>
+      <div class="metric">
+        <div class="m-label">AVG TEMP</div>
+        <div class="m-val i" id="avgTemp">--</div>
+        <div class="m-unit">°C session</div>
+      </div>
+    </div>
+
+    <!-- Sparklines -->
+    <div class="history-wrap">
+      <div class="hist-card">
+        <div class="hist-top">
+          <div class="hist-title">▸ TEMP HISTORY</div>
+          <div class="hist-cur c" id="tSparkCur">--</div>
+        </div>
+        <div class="sparkline" id="tempSpark"></div>
+        <div class="spark-labels"><span id="tSparkMin">--</span><span id="tSparkMax">--</span></div>
+      </div>
+      <div class="hist-card">
+        <div class="hist-top">
+          <div class="hist-title">▸ HUMIDITY HISTORY</div>
+          <div class="hist-cur i" id="hSparkCur">--</div>
+        </div>
+        <div class="sparkline" id="humSpark"></div>
+        <div class="spark-labels"><span id="hSparkMin">--</span><span id="hSparkMax">--</span></div>
+      </div>
+    </div>
+
+  </div><!-- /left -->
+
+  <!-- RIGHT COLUMN -->
+  <div class="right">
+    <div class="r-sysinfo">
+      <div class="r-title">▸ SYSTEM INFO</div>
+      <div class="r-row"><span class="r-key">DEVICE</span><span class="r-val">ESP32 Dual Core</span></div>
+      <div class="r-row"><span class="r-key">RANGE</span><span class="r-val">2°C – 8°C</span></div>
+      <div class="r-row"><span class="r-key">PELTIER</span><span class="r-val c" id="rPeltier">--</span></div>
+      <div class="r-row"><span class="r-key">STATUS</span><span class="r-val c" id="rStatus">INIT</span></div>
+      <div class="r-row"><span class="r-key">PACKETS</span><span class="r-val i" id="rPackets">0</span></div>
+      <div class="r-row"><span class="r-key">MIN</span><span class="r-val i" id="rMin">--</span></div>
+      <div class="r-row"><span class="r-key">MAX</span><span class="r-val i" id="rMax">--</span></div>
+      <div class="r-row"><span class="r-key">AVG</span><span class="r-val i" id="rAvg">--</span></div>
+    </div>
+
+    <div class="r-uptime">
+      <div class="r-title">▸ UPTIME</div>
+      <div class="uval" id="uptimeVal">00:00:00</div>
+      <div style="font-size:.6rem;color:var(--muted);margin-top:3px;font-family:var(--mono);">
+        since <span id="connSince">--</span>
+      </div>
+      <div class="uprog"><div class="uprog-fill" id="uptimeFill"></div></div>
+    </div>
+
+    <div class="log-header">
+      <div class="log-title">▸ EVENT LOG</div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span class="log-count" id="logCount">0</span>
+        <button class="clr-btn" onclick="clearLog()">CLEAR</button>
+      </div>
+    </div>
+    <div class="log-list" id="logList">
+      <div class="log-empty">NO EVENTS YET</div>
+    </div>
+  </div>
+
+</div><!-- /layout -->
+
+<footer>COLD CHAIN IoT · ESP32 · PURE FRONTEND · v2.0</footer>
+
+<script>
+/* ═══════════════════════════════════════════════
+   ESP32 DIRECT HTTP POLLING
+   ─────────────────────────────────────────────
+   The ESP32 must serve JSON at: http://<ESP32_IP>/data
+   Response format: {"temp": 5.4, "hum": 72}
+
+   ESP32 Arduino sketch (add to your existing code):
+
+     #include <WiFi.h>
+     #include <WebServer.h>
+     #include <DHT.h>
+
+     WebServer server(80);
+     DHT dht(4, DHT22);  // adjust pin & type
+
+     void handleData() {
+       float t = dht.readTemperature();
+       float h = dht.readHumidity();
+       String json = "{\"temp\":" + String(t,1) + ",\"hum\":" + String(h,0) + "}";
+       server.sendHeader("Access-Control-Allow-Origin","*");
+       server.send(200, "application/json", json);
+     }
+
+     void setup() {
+       dht.begin();
+       WiFi.begin("SSID","PASSWORD");
+       server.on("/data", handleData);
+       server.begin();
+     }
+
+     void loop() { server.handleClient(); }
+
+   ─────────────────────────────────────────────
+   CHANGE THIS to your ESP32's IP address:
+═══════════════════════════════════════════════ */
+const ESP32_IP = "192.168.1.100";   // ← SET YOUR ESP32 IP HERE
+const POLL_INTERVAL_MS = 2000;      // fetch every 2 seconds
+
+let packets=0,alerts=0,logItems=[],startTime=null,uptimeTimer=null;
+let tempHistory=[],humHistory=[];
+let tMin=Infinity,tMax=-Infinity,tSum=0,tCount=0,lastPeltier=null;
+let fetchErrors=0,pollTimer=null;
+
+/* ── CLOCK ── */
+setInterval(()=>{
+  document.getElementById('lastTime').textContent=new Date().toLocaleTimeString();
+},1000);
+
+function startUptime(){
+  if(startTime)return;
+  startTime=Date.now();
+  document.getElementById('connSince').textContent=new Date().toLocaleTimeString();
+  uptimeTimer=setInterval(()=>{
+    const s=Math.floor((Date.now()-startTime)/1000);
+    const h=String(Math.floor(s/3600)).padStart(2,'0');
+    const m=String(Math.floor((s%3600)/60)).padStart(2,'0');
+    const sc=String(s%60).padStart(2,'0');
+    document.getElementById('uptimeVal').textContent=`${h}:${m}:${sc}`;
+    document.getElementById('uptimeFill').style.width=Math.min(100,(s/3600)*100)+'%';
+  },1000);
+}
+
+function setEspStatus(online){
+  document.getElementById('espDot').className=`pdot ${online?'c':'r'}`;
+  document.getElementById('espText').textContent=online?'ONLINE':'OFFLINE';
+  document.getElementById('pillEsp').className=`pill ${online?'ok':'err'}`;
+}
+
+function addLog(msg,type='info'){
+  const empty=document.querySelector('.log-empty');
+  if(empty)empty.remove();
+  logItems.push({msg,type});
+  const el=document.createElement('div');
+  el.className=`log-item ${type}`;
+  el.innerHTML=`<div class="log-msg">${msg}</div><div class="log-time">${new Date().toLocaleTimeString()}</div>`;
+  document.getElementById('logList').prepend(el);
+  document.getElementById('logCount').textContent=logItems.length;
+  if(type==='danger'){
+    alerts++;
+    document.getElementById('alertCount').textContent=alerts;
+    const b=document.getElementById('alertBanner');
+    b.className='alert-banner show';
+    document.getElementById('alertMsg').textContent=msg;
+    setTimeout(()=>{b.className='alert-banner';},6000);
+  }
+}
+
+function clearLog(){
+  logItems=[];
+  document.getElementById('logList').innerHTML='<div class="log-empty">NO EVENTS YET</div>';
+  document.getElementById('logCount').textContent='0';
+}
+
+function rebuildSpark(id,data,colorClass){
+  const wrap=document.getElementById(id);
+  wrap.innerHTML='';
+  if(!data.length)return;
+  const mn=Math.min(...data),mx=Math.max(...data),rng=mx-mn||1;
+  data.forEach((v,i)=>{
+    const pct=((v-mn)/rng)*100;
+    const bar=document.createElement('div');
+    const isOut=(colorClass==='c')&&(v>8||v<2);
+    bar.className=`spark-bar ${isOut?'danger':colorClass}${i===data.length-1?' hi':''}`;
+    bar.style.height=Math.max(4,pct)+'%';
+    wrap.appendChild(bar);
+  });
+}
+
+function updatePeltier(temp){
+  const on=temp>8||temp<2;
+  if(lastPeltier===on)return;
+  lastPeltier=on;
+  document.getElementById('peltierCard').className=`peltier-card ${on?'on':'off'}`;
+  document.getElementById('peltierState').className=`peltier-state ${on?'on':'off'}`;
+  document.getElementById('peltierState').textContent=on?'ACTIVE':'STANDBY';
+  document.getElementById('peltierIcon').className=`peltier-icon ${on?'on':'off'}`;
+  document.getElementById('peltierSvg').setAttribute('stroke',on?'#f59e0b':'#00e5c8');
+  document.getElementById('peltierReason').textContent=on
+    ?(temp>8?`Cooling: ${temp.toFixed(1)}°C exceeds 8°C`:`Heating: ${temp.toFixed(1)}°C below 2°C`)
+    :'Temp within safe range (2–8°C)';
+  document.getElementById('peltDot').className=`pdot ${on?'a':'c'}`;
+  document.getElementById('peltText').textContent=on?'ACTIVE':'STANDBY';
+  document.getElementById('pillPelt').className=`pill ${on?'warn':'ok'}`;
+  document.getElementById('rPeltier').textContent=on?'ACTIVE':'STANDBY';
+  document.getElementById('rPeltier').className=`r-val ${on?'a':'c'}`;
+  addLog(on?`Peltier ON — temp ${temp.toFixed(1)}°C out of range`:'Peltier OFF — temp in range',on?'warn':'ok');
+}
+
+function handleData(d){
+  packets++;
+  fetchErrors=0;
+  setEspStatus(true);
+  document.getElementById('packetsVal').textContent=packets;
+  document.getElementById('rPackets').textContent=packets;
+
+  if(!startTime){
+    startUptime();
+    document.getElementById('connText').textContent='ONLINE';
+    document.getElementById('connDot').className='pdot c';
+    document.getElementById('pillConn').className='pill ok';
+    addLog('Connected — ESP32 live at '+ESP32_IP,'info');
+  }
+
+  if(d.temp!==undefined){
+    const temp=parseFloat(d.temp);
+    const isHigh=temp>8,isLow=temp<2,isOut=isHigh||isLow;
+    const cls=isHigh?'r':isLow?'a':'c';
+
+    document.getElementById('tempBig').textContent=temp.toFixed(1);
+    document.getElementById('tempBig').className=`r-big ${cls}`;
+    document.getElementById('tempBar').style.width=Math.min(100,Math.max(0,(temp/30)*100))+'%';
+    document.getElementById('illus-temp').textContent=temp.toFixed(1)+'°C';
+
+    const lbl=isHigh?'HIGH TEMP':isLow?'LOW TEMP':'NORMAL';
+    document.getElementById('sysText').textContent=lbl;
+    document.getElementById('rStatus').textContent=lbl;
+    document.getElementById('rStatus').className=`r-val ${isOut?'r':'c'}`;
+    document.getElementById('sysDot').className=`pdot ${isOut?'r':'c'}`;
+    document.getElementById('pillSys').className=`pill ${isOut?'err':'ok'}`;
+
+    tempHistory.push(temp);
+    if(tempHistory.length>20)tempHistory.shift();
+    rebuildSpark('tempSpark',tempHistory,'c');
+    document.getElementById('tSparkMin').textContent=Math.min(...tempHistory).toFixed(1)+'°C';
+    document.getElementById('tSparkMax').textContent=Math.max(...tempHistory).toFixed(1)+'°C';
+    document.getElementById('tSparkCur').textContent=temp.toFixed(1)+'°C';
+
+    tMin=Math.min(tMin,temp);tMax=Math.max(tMax,temp);tSum+=temp;tCount++;
+    document.getElementById('minTemp').textContent=tMin.toFixed(1);
+    document.getElementById('maxTemp').textContent=tMax.toFixed(1);
+    document.getElementById('avgTemp').textContent=(tSum/tCount).toFixed(1);
+    document.getElementById('rMin').textContent=tMin.toFixed(1)+'°C';
+    document.getElementById('rMax').textContent=tMax.toFixed(1)+'°C';
+    document.getElementById('rAvg').textContent=(tSum/tCount).toFixed(1)+'°C';
+
+    updatePeltier(temp);
+    if(isHigh)addLog(`Temp HIGH: ${temp.toFixed(1)}°C — max 8°C`,'danger');
+    if(isLow) addLog(`Temp LOW: ${temp.toFixed(1)}°C — min 2°C`,'danger');
+  }
+
+  if(d.hum!==undefined){
+    const hum=parseFloat(d.hum);
+    document.getElementById('humBig').textContent=hum.toFixed(0);
+    document.getElementById('humBar').style.width=Math.min(100,hum)+'%';
+    document.getElementById('illus-hum').textContent=hum.toFixed(0)+'%';
+    humHistory.push(hum);
+    if(humHistory.length>20)humHistory.shift();
+    rebuildSpark('humSpark',humHistory,'i');
+    document.getElementById('hSparkMin').textContent=Math.min(...humHistory).toFixed(0)+'%';
+    document.getElementById('hSparkMax').textContent=Math.max(...humHistory).toFixed(0)+'%';
+    document.getElementById('hSparkCur').textContent=hum.toFixed(0)+'%';
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   CORE FETCH LOOP — polls ESP32 every 2 seconds
+═══════════════════════════════════════════════ */
+async function fetchFromESP32(){
+  try{
+    const res=await fetch(`http://${ESP32_IP}/data`,{
+      signal:AbortSignal.timeout(3000)   // 3 s timeout
+    });
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    const json=await res.json();
+    handleData(json);
+  }catch(err){
+    fetchErrors++;
+    setEspStatus(false);
+    document.getElementById('connText').textContent='RETRYING';
+    document.getElementById('connDot').className='pdot a';
+    document.getElementById('pillConn').className='pill warn';
+    if(fetchErrors===1||fetchErrors%10===0){
+      addLog(`ESP32 unreachable (${fetchErrors} tries) — ${err.message}`,'warn');
+    }
+  }
+}
+
+/* kick off polling immediately */
+fetchFromESP32();
+pollTimer=setInterval(fetchFromESP32,POLL_INTERVAL_MS);
+</script>
+</body>
+</html>
